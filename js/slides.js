@@ -64,7 +64,7 @@
       render: function () {
         return '<div class="bg-anim"></div>' + floaters(['💌', '✨', '💖', '🎈', '🌸', '💫', '💕'], 10) +
           '<div class="sl sl--center">' +
-            '<div class="stk-mention intro__mention pop-in" style="--d:.15s;--r:-6deg"><b>@' + esc(C.username || 'alena') + '</b></div>' +
+            '<div class="stk-mention intro__mention pop-in" style="--d:.15s;--r:-6deg"><b>@' + esc(C.username || 'alenka') + '</b></div>' +
             '<h1 class="t-neon intro__name rise" style="--d:.35s">' + esc(C.name) + ',</h1>' +
             '<p class="t-hl rise" style="--d:.75s"><span>у меня для тебя</span><br><span>кое-что есть…</span></p>' +
             '<div class="intro__emoji rise" style="--d:1.15s"><span class="bob">🤫</span></div>' +

@@ -133,7 +133,7 @@
     var since = A.since(A.metAt);
     var hasPhotos = A.photos.length > 0;
     var av = hasPhotos || C.avatar || A.hasSpecial('avatar');
-    var user = C.username || 'alena';
+    var user = C.username || 'alenka';
     var from = C.fromUsername || 'sasha';
 
     var hl = HIGHLIGHTS.filter(function (h) { return A.stories.indexOf(h.id) >= 0; }).map(function (h) {
@@ -238,7 +238,7 @@
 
   function buildFeed() {
     var fv = $('#feedView');
-    var user = C.username || 'alena';
+    var user = C.username || 'alenka';
     var av = A.photos.length > 0 || C.avatar || A.hasSpecial('avatar');
     var caps = C.photoCaptions || [];
     var info = A.birthdayInfo();
