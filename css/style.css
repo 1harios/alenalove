@@ -1633,6 +1633,72 @@ img.emoji {
 .paper__skip { position: absolute; z-index: 5; right: calc(var(--u) * 7); bottom: calc(var(--u) * 19.5); padding: calc(var(--u) * 1.6) calc(var(--u) * 3.2); border-radius: 99px; background: rgba(179, 18, 63, .1); font-size: calc(var(--u) * 3.4); font-weight: 700; color: #b3123f; }
 
 /* =========================================================
+   13½. КВЕСТ «СЕЙФ С ПОДАРКОМ»
+   ========================================================= */
+.bg-safe { background: radial-gradient(120% 80% at 50% 22%, #3b2a72 0%, #1c1340 55%, #0a0618 100%); }
+.quest .t-hl { margin-bottom: calc(var(--u) * 2.4); }
+.qs-locks { display: flex; justify-content: center; gap: calc(var(--u) * 3.5); font-size: calc(var(--u) * 7.6); line-height: 1; }
+.qs-lock { display: inline-block; filter: brightness(.85); transition: filter .4s; }
+.qs-lock.open { filter: none; animation: qs-pop .6s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes qs-pop { 40% { transform: scale(1.35) rotate(-8deg); } }
+.qs-card {
+  width: calc(var(--u) * 84);
+  margin-top: calc(var(--u) * 3.4);
+  padding: calc(var(--u) * 3) calc(var(--u) * 4.5) calc(var(--u) * 3.4);
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: calc(var(--u) * 4);
+  background: rgba(255, 255, 255, .13);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: #fff;
+}
+.slide.is-active .qs-card.swap { animation: qs-swap .5s ease both; }
+@keyframes qs-swap { from { opacity: 0; transform: translateX(calc(var(--u) * 10)); } to { opacity: 1; transform: none; } }
+.qs-step { font-size: calc(var(--u) * 3.1); font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .7; }
+/* текст — в одном span, чтобы эмодзи-картинки не стали отдельными flex-элементами; высота — на 2 строки, чтобы экран не прыгал */
+.qs-q { display: flex; align-items: center; justify-content: center; min-height: 2.44em; margin-top: calc(var(--u) * 1); font-size: calc(var(--u) * 4.6); font-weight: 700; line-height: 1.22; }
+.qs-dots { display: flex; justify-content: center; gap: calc(var(--u) * 2.4); min-height: calc(var(--u) * 10.5); margin-top: calc(var(--u) * 3.6); }
+.qs-dots i {
+  display: grid; place-items: center;
+  width: calc(var(--u) * 8.6); height: calc(var(--u) * 10.5);
+  border: 2px solid rgba(255, 255, 255, .55);
+  border-radius: calc(var(--u) * 2.4);
+  color: #fff; font-style: normal; font-weight: 800; font-size: calc(var(--u) * 6.2);
+  transition: background .2s, border-color .2s;
+}
+.qs-dots i.on { border-color: #fff; background: rgba(255, 255, 255, .2); }
+.qs-dots.ok i { border-color: #34c759; background: #34c759; }
+.qs-dots.bad { animation: qs-shake .5s ease; }
+.qs-dots.bad i { border-color: #ff453a; background: rgba(255, 69, 58, .3); }
+@keyframes qs-shake { 15%, 55% { transform: translateX(calc(var(--u) * -3)); } 35%, 75% { transform: translateX(calc(var(--u) * 3)); } }
+.qs-msg {
+  display: flex; align-items: center; justify-content: center;
+  min-height: calc(var(--u) * 9.4); margin-top: calc(var(--u) * 1.4); padding: 0 calc(var(--u) * 3);
+  color: #ffe08a; font-size: calc(var(--u) * 3.7); font-weight: 600; line-height: 1.25;
+}
+.qs-pad { display: grid; grid-template-columns: repeat(3, calc(var(--u) * 13.6)); gap: calc(var(--u) * 2) calc(var(--u) * 6.4); }
+.qs-key {
+  display: grid; place-items: center;
+  width: calc(var(--u) * 13.6); height: calc(var(--u) * 13.6);
+  border: 0; border-radius: 50%;
+  background: rgba(255, 255, 255, .16);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: #fff; font: 500 calc(var(--u) * 6.8)/1 var(--font);
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+  transition: background .15s, transform .1s;
+}
+.qs-key:active { background: rgba(255, 255, 255, .42); transform: scale(.94); }
+.qs-key:focus { outline: none; }
+.qs-key:focus-visible { box-shadow: 0 0 0 2px rgba(255, 255, 255, .7); }
+.qs-key--fn { background: none; font-size: calc(var(--u) * 6.2); }
+.qs-key--fn .icon { width: calc(var(--u) * 7.4); height: calc(var(--u) * 7.4); }
+.qs-prize { display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 3); margin-top: calc(var(--u) * 7); color: #fff; animation: rise .8s cubic-bezier(.2, .9, .3, 1.15) both; }
+.qs-prize__em { font-size: calc(var(--u) * 30); line-height: 1; animation: qs-gift 1.8s ease-in-out infinite; }
+@keyframes qs-gift { 0%, 100% { transform: rotate(-6deg) scale(1); } 50% { transform: rotate(6deg) scale(1.08); } }
+.qs-prize__text { padding: 0 calc(var(--u) * 3); font-size: calc(var(--u) * 5); font-weight: 700; line-height: 1.32; white-space: pre-line; }
+
+/* =========================================================
    14. ФИНАЛ
    ========================================================= */
 .fin__heart { position: relative; width: calc(var(--u) * 84); height: calc(var(--u) * 74); flex: none; }

@@ -108,7 +108,8 @@
     { id: 'coupons', em: '🎟️', label: 'Купоны', bg: 'linear-gradient(135deg,#f6d365,#fda085)' },
     { id: 'cookie', em: '🥠', label: 'Судьба', bg: 'linear-gradient(135deg,#2a1250,#5a2d91)' },
     { id: 'reasons', em: '🫶', label: 'Причины', bg: 'linear-gradient(135deg,#e6cfff,#ffc7e4)' },
-    { id: 'letter', em: '💌', label: 'Письмо', bg: 'linear-gradient(135deg,#ffecd2,#fcb69f)' }
+    { id: 'letter', em: '💌', label: 'Письмо', bg: 'linear-gradient(135deg,#ffecd2,#fcb69f)' },
+    { id: 'quest', em: '🎁', label: 'Подарок', bg: 'linear-gradient(135deg,#2a1d5c,#5b3fa8)' }
   ];
   var DECO = [
     ['🎂', 'С днём рождения!', '#ff9a9e', '#fecfef'],

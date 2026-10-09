@@ -1494,6 +1494,149 @@
   }
 
   /* =========================================================
+     13½. Квест «Сейф с подарком»: замки открываются кодами
+     ========================================================= */
+  function sQuest() {
+    var Q = C.quest || {};
+    var steps = (Q.steps || []).filter(function (s) { return s && s.q && s.code; });
+    var total = steps.length;
+    var KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'hint', '0', 'del'];
+    // Ответ замка. 'days' — сколько дней вы вместе; вчерашнее число тоже подходит, если день сменился, пока открыт профиль
+    function answers(s) {
+      if (s.code === 'days') { var d = A.since(A.metAt).days; return [String(d), String(d - 1)]; }
+      return [String(s.code).replace(/\D/g, '')];
+    }
+    return {
+      id: 'quest',
+      cls: 'bg-safe',
+      interactive: true,
+      render: function () {
+        return stars(26) +
+          '<div class="sl sl--center quest" data-interactive>' +
+            '<p class="t-hl t-hl--glass rise"><span>Главный подарок</span><br><span>заперт в сейфе 🔐</span></p>' +
+            '<div class="qs-locks rise" style="--d:.15s">' + steps.map(function () { return '<span class="qs-lock">🔒</span>'; }).join('') + '</div>' +
+            '<div class="qs-card rise" style="--d:.25s"><div class="qs-step"></div><div class="qs-q"><span></span></div></div>' +
+            '<div class="qs-dots"></div>' +
+            '<div class="qs-msg" aria-live="polite"><span></span></div>' +
+            '<div class="qs-pad rise" style="--d:.35s">' + KEYS.map(function (k) {
+              if (k === 'hint') return '<button class="qs-key qs-key--fn" data-k="hint" aria-label="Подсказка">💡</button>';
+              if (k === 'del') return '<button class="qs-key qs-key--fn" data-k="del" aria-label="Стереть">' + A.icons.del + '</button>';
+              return '<button class="qs-key" data-k="' + k + '">' + k + '</button>';
+            }).join('') + '</div>' +
+            '<div class="qs-prize" hidden><div class="qs-prize__em">🎁</div><div class="qs-prize__text"></div></div>' +
+          '</div>';
+      },
+      mount: function (el, api) {
+        var locks = A.$$('.qs-lock', el);
+        var card = A.$('.qs-card', el);
+        var dotsEl = A.$('.qs-dots', el);
+        var msg = A.$('.qs-msg', el);
+        var pad = A.$('.qs-pad', el);
+        var prize = A.$('.qs-prize', el);
+        var i = A.clamp(+A.store.get('quest', 0) || 0, 0, total); // сколько замков уже открыто — продолжим с того же места
+        var typed = '';
+        var wrong = 0;
+        var busy = false;
+
+        function codeLen() { return answers(steps[i])[0].length; }
+        function paintLocks() {
+          locks.forEach(function (l, k) { A.setText(l, k < i ? '🔓' : '🔒'); l.classList.toggle('open', k < i); });
+        }
+        function paintDots() {
+          var html = '';
+          for (var k = 0; k < codeLen(); k++) html += '<i' + (k < typed.length ? ' class="on"' : '') + '>' + (typed[k] || '') + '</i>';
+          dotsEl.innerHTML = html;
+        }
+        function say(text) { A.setText(A.$('span', msg), text || ''); }
+        function finish(fresh) {
+          paintLocks();
+          [card, dotsEl, msg, pad].forEach(function (n) { n.hidden = true; });
+          A.$('.t-hl', el).innerHTML = '<span>Сейф открыт! 🎉</span>';
+          A.emojify(A.$('.t-hl', el));
+          A.setText(A.$('.qs-prize__text', prize), Q.prize || 'Подарок ждёт тебя 🎁');
+          prize.hidden = false;
+          api.complete();
+          if (fresh) {
+            snd.sparkle();
+            fx.confetti({ count: 140, emoji: ['🎁', '💝', '✨', '🎉'], emojiShare: 0.35 });
+          }
+        }
+        function showStep() {
+          busy = false;
+          typed = '';
+          wrong = 0;
+          dotsEl.classList.remove('ok', 'bad');
+          paintLocks();
+          if (i >= total) { finish(false); return; }
+          A.setText(A.$('.qs-step', card), 'Замок ' + (i + 1) + ' из ' + total);
+          A.setText(A.$('.qs-q span', card), steps[i].q);
+          say('');
+          paintDots();
+        }
+        function check() {
+          if (answers(steps[i]).indexOf(typed) >= 0) {
+            busy = true;
+            dotsEl.classList.add('ok');
+            snd.success();
+            A.vibrate(20);
+            var lock = locks[i];
+            var c = A.center(lock);
+            A.setText(lock, '🔓');
+            lock.classList.add('open');
+            fx.confetti({ x: c.x, y: c.y, count: 40, emoji: ['✨', '🔑', '💖'], emojiShare: 0.4, speed: [4, 10] });
+            i++;
+            A.store.set('quest', i);
+            api.setProgress(i / total);
+            api.later(function () {
+              if (i >= total) { busy = false; finish(true); return; }
+              card.classList.remove('swap');
+              void card.offsetWidth;
+              card.classList.add('swap');
+              showStep();
+            }, 1100);
+            return;
+          }
+          wrong++;
+          busy = true;
+          dotsEl.classList.remove('bad');
+          void dotsEl.offsetWidth;
+          dotsEl.classList.add('bad');
+          snd.boing();
+          A.vibrate([40, 60, 40]);
+          say(wrong >= 2 && steps[i].hint ? '💡 ' + steps[i].hint : A.pick(['Не-а 😏 Попробуй ещё', 'Почти! Но нет 🙈', 'Холодно ❄️ Ещё разок']));
+          api.later(function () { typed = ''; busy = false; paintDots(); }, 650);
+        }
+        function press(k) {
+          if (busy || i >= total) return;
+          if (k === 'hint') { snd.tap(); say(steps[i].hint ? '💡 ' + steps[i].hint : 'Подумай ещё чуть-чуть 😉'); return; }
+          if (k === 'del') { snd.tap(); typed = typed.slice(0, -1); paintDots(); return; }
+          if (typed.length >= codeLen()) return;
+          typed += k;
+          snd.tap();
+          A.vibrate(8);
+          paintDots();
+          if (typed.length === codeLen()) api.later(check, 180);
+        }
+        pad.addEventListener('click', function (e) {
+          var b = e.target.closest('.qs-key');
+          if (b) press(b.getAttribute('data-k'));
+        });
+        // на компьютере можно набирать код с клавиатуры
+        document.addEventListener('keydown', function (e) {
+          if (!el.isConnected || !api.isActive() || /INPUT|TEXTAREA/.test((e.target && e.target.tagName) || '')) return;
+          if (/^[0-9]$/.test(e.key)) press(e.key);
+          else if (e.key === 'Backspace') { e.preventDefault(); press('del'); }
+        });
+        // если ушли с истории посреди анимации, её таймеры сброшены — начинаем текущий замок заново
+        api.slide.questReset = showStep;
+        showStep();
+      },
+      enter: function (el, api) { if (api.slide.questReset) api.slide.questReset(); },
+      hint: function (el) { pulse(A.$('.qs-pad', el)); A.toast('Введи код на клавиатуре 🔐'); }
+    };
+  }
+
+  /* =========================================================
      14. Финал
      ========================================================= */
   // Точки на контуре сердца на равном расстоянии друг от друга
@@ -1594,7 +1737,9 @@
     list = list.concat(block(2, '❤️ Это мы'));
     list.push(sCoupons(), sCookie(), sAsk());
     if (C.reasons && C.reasons.length) list.push(sReasons());
-    list.push(sLetter(), sFinal());
+    list.push(sLetter());
+    if (C.quest && C.quest.steps && C.quest.steps.length) list.push(sQuest());
+    list.push(sFinal());
     return list;
   };
 })();

@@ -492,6 +492,7 @@
     chevronDown: S + '<path d="M6 9l6 6 6-6"/></svg>',
     back: S.replace('stroke-width="2"', 'stroke-width="2.4"') + '<path d="M15 4.5 7.5 12l7.5 7.5"/></svg>',
     next: S.replace('stroke-width="2"', 'stroke-width="2.6"') + '<path d="M9 5l7 7-7 7"/></svg>',
+    del: S + '<path d="M21 5H9l-6.5 7L9 19h12z"/><path d="M17.5 9.5l-5 5M12.5 9.5l5 5"/></svg>',
     pause: '<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg>',
     lock: '<svg class="icon lock__lock" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 10V7.5a5 5 0 0 1 10 0V10h.5A1.5 1.5 0 0 1 19 11.5v8a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19.5v-8A1.5 1.5 0 0 1 6.5 10zm2 0h6V7.5a3 3 0 0 0-6 0z"/></svg>',
     verified: (function () {
