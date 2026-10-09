@@ -294,6 +294,11 @@
     if (m) { App.store.set('mediaKey', m[1]); return m[1]; }
     return App.store.get('mediaKey', '');
   })();
+  // Ключ дописали в адрес уже открытой страницы — браузер сам её не перезагрузит
+  window.addEventListener('hashchange', function () {
+    var m = (location.hash || '').match(/[#&]k=([A-Za-z0-9_-]{16,})/);
+    if (m && m[1] !== App.mediaKey) { App.store.set('mediaKey', m[1]); location.reload(); }
+  });
   function cryptoKey() {
     if (keyPromise) return keyPromise;
     var subtle = window.crypto && window.crypto.subtle;
