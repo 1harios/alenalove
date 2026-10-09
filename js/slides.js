@@ -80,7 +80,7 @@
      ========================================================= */
   function sHB() {
     var info = A.birthdayInfo();
-    var photo = A.avatarFull();
+    var photo = A.photos.length > 0 || A.hasSpecial('polaroid');
     return {
       id: 'hb',
       cls: 'bg-party',
@@ -96,7 +96,7 @@
         return '<div class="hb__balloons" aria-hidden="true">' + balloons + '</div>' +
           '<div class="sl sl--center">' +
             '<div class="polaroid pop-in" style="--d:.1s;--r:-5deg"><div class="polaroid__tape"></div>' +
-              (photo ? '<img class="polaroid__img" src="' + esc(photo) + '" alt="">' : '<div class="polaroid__emoji">🥳</div>') +
+              (photo ? '<img class="polaroid__img" data-pic="polaroid" alt="">' : '<div class="polaroid__emoji">🥳</div>') +
               '<div class="polaroid__cap">' + dd + ' ✨</div>' +
             '</div>' +
             '<h1 class="t-big hb__title">' + letters('С днём', 0) + letters('рождения!', 6) + '</h1>' +
@@ -112,7 +112,7 @@
         }, 950);
         api.later(function () { fx.rain({ duration: 1800, rate: 3 }); }, 1900);
       },
-      preload: function () { A.preload(photo); }
+      preload: function () { A.picAsync('polaroid'); }
     };
   }
 
@@ -228,7 +228,7 @@
      5. Игра: накорми именинницу тортиком
      ========================================================= */
   function sFeed() {
-    var photo = A.avatarSrc();
+    var photo = A.photos.length > 0 || A.hasSpecial('feedFace');
     var TOTAL = 5;
     var lines = ['Ням! 😋', 'Ммм, как вкусно! 🤤', 'Ещё кусочек! 🥰', 'Последний… наверное 🤭'];
     var pokes = ['Ну дай тортик 🥺', 'Я жду-у 😋', 'Тортик сам себя не съест 🍰'];
@@ -247,7 +247,7 @@
             '<p class="t-hl feed__title rise"><span>Накорми именинницу</span><br><span>тортиком 🎂</span></p>' +
             '<div class="feed__face rise" style="--d:.2s" data-interactive>' +
               '<div class="feed__bubble">Покорми меня тортиком 🥺</div>' +
-              '<div class="feed__avatar">' + (photo ? '<img src="' + esc(photo) + '" alt="">' : '<span class="feed__big">😊</span>') + '</div>' +
+              '<div class="feed__avatar">' + (photo ? '<img data-pic="feedFace" alt="">' : '<span class="feed__big">😊</span>') + '</div>' +
               (photo ? '<div class="feed__react">😊</div>' : '') +
             '</div>' +
             '<div class="feed__meter rise" style="--d:.35s"><span>Сытость</span><div class="feed__bar"><i></i></div><span class="feed__count">0/' + TOTAL + '</span></div>' +
@@ -580,34 +580,206 @@
   /* =========================================================
      7. Фото-истории
      ========================================================= */
-  function sPhoto(p, i) {
+  function photoCaption(p, i) {
     var caps = C.photoCaptions || [];
-    var cap = p.caption || (caps.length ? caps[i % caps.length] : '');
+    return p.caption || (caps.length ? caps[i % caps.length] : '');
+  }
+  function photoLayers(p, i, label) {
+    var cap = photoCaption(p, i);
+    return '<div class="ph__bg" data-thumb="' + i + '"></div>' +
+      '<div class="ph__media"></div>' +
+      '<div class="ph__shade"></div>' +
+      (label ? '<div class="ph__label stk-pill pop-in" style="--d:.2s">' + esc(label) + '</div>' : '') +
+      (cap ? '<div class="ph__cap rise" style="--d:.5s"><p class="t-hl t-hl--sm"><span>' + esc(cap) + '</span></p></div>' : '');
+  }
+
+  function sPhoto(p, i, id, label) {
     return {
-      id: 'photo-' + (i + 1),
+      id: id,
       cls: 'photo-slide',
       duration: 6500,
-      render: function () {
-        return '<div class="ph__bg" style="background-image:url(\'' + cssUrl(p.thumb) + '\')"></div>' +
-          '<img class="ph__img" alt="" decoding="async">' +
-          '<div class="ph__shade"></div>' +
-          (i === 0 ? '<div class="ph__label stk-pill pop-in" style="--d:.2s">📸 Наши моменты</div>' : '') +
-          (cap ? '<div class="ph__cap rise" style="--d:.5s"><p class="t-hl t-hl--sm"><span>' + esc(cap) + '</span></p></div>' : '');
-      },
+      render: function () { return photoLayers(p, i, label); },
       enter: function (el, api) {
-        var img = A.$('.ph__img', el);
-        if (img.getAttribute('src') && img.complete) return;
-        api.wait(new Promise(function (res) {
-          img.onload = function () {
-            if (img.naturalWidth > img.naturalHeight * 1.05) img.classList.add('contain');
-            img.classList.add('loaded');
-            res();
-          };
-          img.onerror = function () { res(); };
-          if (!img.getAttribute('src')) img.src = p.src;
+        var box = A.$('.ph__media', el);
+        var img = A.$('img', box);
+        if (img && img.complete && img.naturalWidth) return;
+        if (!img) {
+          img = document.createElement('img');
+          img.className = 'ph__img';
+          img.alt = '';
+          img.decoding = 'async';
+          box.appendChild(img);
+        }
+        api.wait(A.photoSrc(p).then(function (url) {
+          if (!url) return;
+          return new Promise(function (res) {
+            img.onload = function () {
+              // широкие фото и высокие скриншоты показываем целиком на размытом фоне
+              var r = img.naturalWidth / img.naturalHeight;
+              if (r > 1.05 || r < 0.5) img.classList.add('contain');
+              img.classList.add('loaded');
+              res();
+            };
+            img.onerror = function () { res(); };
+            img.src = url;
+          });
         }));
       },
-      preload: function () { A.preload(p.src); }
+      preload: function () { A.photoSrc(p).then(A.preload); }
+    };
+  }
+
+  /* --- Видео-история: один общий <video> на весь сайт.
+     Он «разблокируется» первым нажатием (экран блокировки), поэтому дальше iPhone
+     разрешает играть видео со звуком без отдельного тапа. --- */
+  var vid = null;
+  A.videoEl = function () {
+    if (!vid) {
+      vid = document.createElement('video');
+      vid.className = 'vid';
+      vid.setAttribute('playsinline', '');
+      vid.setAttribute('webkit-playsinline', '');
+      vid.playsInline = true;
+      vid.preload = 'auto';
+      vid.disableRemotePlayback = true;
+      A.sound.onChange(function (m) { vid.muted = m; });
+    }
+    return vid;
+  };
+  A.unlockVideo = function () {
+    var v = A.videoEl();
+    try {
+      v.muted = true;
+      v.load();
+      var p = v.play();
+      if (p && p.catch) p.catch(function () {});
+      v.pause();
+      v.muted = A.sound.isMuted();
+    } catch (e) { /* ignore */ }
+  };
+
+  function sVideo(p, i, id, label) {
+    var st = { failed: false, url: '' };
+    var api0 = null;
+    function btn(el, mode) {
+      var b = A.$('.vid__btn', el);
+      b.hidden = !mode;
+      if (mode) A.setText(b, mode === 'sound' ? '🔇 Нажми, чтобы включить звук' : '▶️ Нажми, чтобы посмотреть');
+      b.setAttribute('data-mode', mode || '');
+    }
+    // Браузер не умеет этот формат — показываем кадр из видео, и история идёт сама по таймеру
+    function fallback(el) {
+      if (st.failed) return;
+      st.failed = true;
+      btn(el, null);
+      A.videoEl().removeAttribute('src');
+      var box = A.$('.ph__media', el);
+      A.posterSrc(p).then(function (url) {
+        if (!url) return;
+        box.innerHTML = '<img class="ph__img loaded' + (p.w / p.h > 0.62 ? ' contain' : '') + '" alt="">';
+        A.$('img', box).src = url;
+      });
+    }
+    function start(el) {
+      var v = A.videoEl();
+      v.muted = A.sound.isMuted();
+      v.onerror = function () { if (api0 && api0.isActive()) fallback(el); };
+      var pr = v.play();
+      if (!pr || !pr.catch) return Promise.resolve();
+      return pr.catch(function (e) {
+        if (e && e.name === 'AbortError') return; // запуск прервали паузой — это не запрет звука
+        if (e && e.name === 'NotSupportedError') { fallback(el); return; }
+        // звук без нажатия не разрешили — играем без звука и предлагаем включить
+        v.muted = true;
+        return v.play().then(function () {
+          if (!A.sound.isMuted()) btn(el, 'sound');
+        }, function () { btn(el, 'play'); });
+      });
+    }
+    return {
+      id: id,
+      cls: 'photo-slide video-slide',
+      duration: Math.round((p.duration || 10) * 1000) + 300,
+      render: function () {
+        return photoLayers(p, i, label) + '<button class="vid__btn" hidden></button>';
+      },
+      mount: function (el) {
+        A.$('.vid__btn', el).addEventListener('click', function () {
+          var v = A.videoEl();
+          A.sound.unlock();
+          if (A.sound.isMuted()) A.sound.setMuted(false);
+          v.muted = false;
+          var pr = v.play();
+          if (pr && pr.catch) pr.catch(function () {});
+          btn(el, null);
+        });
+      },
+      enter: function (el, api) {
+        api0 = api;
+        if (st.failed) return;
+        var v = A.videoEl();
+        var box = A.$('.ph__media', el);
+        box.appendChild(v);
+        v.classList.toggle('contain', p.w && p.h ? p.w / p.h > 0.62 : false);
+        btn(el, null);
+        A.sound.pauseMusic();
+        api.wait(A.photoSrc(p).then(function (url) {
+          if (!url) { st.failed = true; api.later(function () { if (api.isActive()) api.next(); }, 4000); return; }
+          if (st.url !== url || v.getAttribute('src') !== url) { st.url = url; v.src = url; }
+          try { v.currentTime = 0; } catch (e) { /* ignore */ }
+          return start(el);
+        }));
+      },
+      leave: function () {
+        var v = A.videoEl();
+        v.onerror = null;
+        v.pause();
+        A.sound.playMusic();
+      },
+      clock: function () {
+        if (st.failed) return null;
+        var v = A.videoEl();
+        return { t: v.currentTime || 0, d: v.duration || p.duration || 1, ended: v.ended };
+      },
+      setPaused: function (paused) {
+        var v = A.videoEl();
+        if (paused) v.pause();
+        else if (st.url && v.paused && !v.ended) { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); }
+      },
+      preload: function () { A.photoSrc(p); }
+    };
+  }
+
+  /* =========================================================
+     Как всё началось — IMVU
+     ========================================================= */
+  function sMet() {
+    var how = C.howWeMet || {};
+    return {
+      id: 'imvu',
+      cls: 'bg-imvu',
+      duration: 9500,
+      render: function () {
+        return stars(26) +
+          '<div class="imvu__beam imvu__beam--l"></div><div class="imvu__beam imvu__beam--r"></div>' +
+          '<div class="sl sl--center imvu">' +
+            '<p class="t-hl rise"><span>' + esc(how.title || 'А помнишь, как всё началось? 🎮') + '</span></p>' +
+            '<div class="imvu__phone pop-in" style="--d:.3s;--r:-4deg"><img data-pic="imvu" alt=""></div>' +
+            '<div class="imvu__ach"><span class="imvu__trophy">🏆</span><span><small>Достижение получено</small><b>' +
+              esc(how.achievement || '«Встретить ту самую» ❤️') + '</b></span></div>' +
+            '<p class="t-hl t-hl--sm rise" style="--d:2.2s"><span>' + esc(A.dateLong(A.metAt)) + ' · ' + esc(how.place || 'IMVU') + '</span><br><span>' +
+              esc(how.text || 'Кто бы мог подумать, что из игры получится самое настоящее 💞') + '</span></p>' +
+          '</div>';
+      },
+      enter: function (el, api) {
+        var ach = A.$('.imvu__ach', el);
+        ach.classList.remove('show');
+        api.later(function () { ach.classList.add('show'); snd.ding(); A.vibrate(20); }, 1500);
+        api.later(function () {
+          var c = A.center(ach);
+          fx.confetti({ x: c.x, y: c.y, count: 50, spread: Math.PI * 2, speed: [3, 8], emoji: ['🏆', '✨', '💜'] });
+        }, 1650);
+      }
     };
   }
 
@@ -1232,7 +1404,7 @@
   }
   function sFinal() {
     var photos = A.photos;
-    var center = A.avatarSrc();
+    var center = photos.length > 0 || A.hasSpecial('us');
     return {
       id: 'final',
       cls: 'bg-final',
@@ -1249,8 +1421,7 @@
           var py = ((pts[k].y + 12) / 29 * 100).toFixed(1);
           var style = 'style="--x:' + px + '%;--y:' + py + '%;--i:' + k + (usePhotos ? '' : ';--s:8') + '"';
           if (usePhotos) {
-            var ph = photos[k % photos.length];
-            dots += '<div class="fin__dot ph" ' + style + '><img src="' + esc(ph.thumb) + '" alt="" loading="lazy" decoding="async"></div>';
+            dots += '<div class="fin__dot ph" ' + style + '><img data-thumb="' + (k % photos.length) + '" alt="" decoding="async"></div>';
           } else {
             dots += '<div class="fin__dot em" ' + style + '>' + hearts[k % hearts.length] + '</div>';
           }
@@ -1258,7 +1429,7 @@
         return stars(30) +
           '<div class="sl sl--center">' +
             '<div class="fin__heart">' + dots +
-              '<div class="fin__center' + (center ? ' ph' : '') + '">' + (center ? '<img src="' + esc(center) + '" alt="">' : '💖') + '</div>' +
+              '<div class="fin__center' + (center ? ' ph' : '') + '">' + (center ? '<img data-pic="us" alt="">' : '💖') + '</div>' +
             '</div>' +
             '<h1 class="t-neon fin__title rise" style="--d:2.1s">С днём рождения,<br>любимая!</h1>' +
             '<p class="fin__sub rise" style="--d:2.5s">Я тебя очень люблю ❤️<br><span class="fin__sign">' + esc(sign) + '</span></p>' +
@@ -1281,15 +1452,30 @@
         };
         api.later(function () { fire(); api.every(fire, 1100); }, 2600);
       },
-      preload: function () { A.preload(center); }
+      preload: function () { A.picAsync('us'); }
     };
   }
 
   /* ---------- Порядок историй ---------- */
   A.buildSlides = function () {
-    var list = [sIntro(), sHB(), sPoll(), sTimer(), sFeed(), sCandles()];
-    A.storyPhotos().forEach(function (p, i) { list.push(sPhoto(p, i)); });
-    list.push(sBalloons(), sSlider(), sCoupons(), sCookie(), sAsk(), sLetter(), sFinal());
+    var blocks = C.photoBlocks || {};
+    function block(n, fallbackLabel) {
+      var count = 0;
+      return A.storyBlock(n).map(function (p) {
+        var i = A.photos.indexOf(p);
+        var label = count === 0 ? (blocks[n] || fallbackLabel) : '';
+        count++;
+        var id = 'b' + n + '-' + count;
+        return p.video ? sVideo(p, i, id, label) : sPhoto(p, i, id, label);
+      });
+    }
+    var list = [sIntro(), sHB(), sPoll()];
+    if (A.hasSpecial('imvu')) list.push(sMet());
+    list.push(sTimer(), sFeed(), sCandles());
+    list = list.concat(block(1, '📸 Наши моменты'));
+    list.push(sBalloons(), sSlider());
+    list = list.concat(block(2, '❤️ Это мы'));
+    list.push(sCoupons(), sCookie(), sAsk(), sLetter(), sFinal());
     return list;
   };
 })();

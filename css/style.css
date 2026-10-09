@@ -330,6 +330,7 @@ img.emoji {
 .p-name { font-weight: 600; }
 .p-cat { color: var(--muted); }
 .p-bio a { color: var(--link); font-weight: 500; text-decoration: none; }
+.p-lock { margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: var(--chip); color: var(--muted); font-size: 13px; }
 .p-actions { display: flex; gap: 6px; padding: 14px 16px 6px; }
 .btn {
   flex: 1;
@@ -360,9 +361,11 @@ img.emoji {
   border-radius: 50%;
   display: grid;
   place-items: center;
+  overflow: hidden;
   font-size: 27px;
   background: var(--hl-bg, var(--chip));
 }
+.hl__cover > img { width: 100%; height: 100%; object-fit: cover; }
 .hl__label { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
 
 .p-tabs {
@@ -380,6 +383,8 @@ img.emoji {
 .tile { position: relative; display: block; width: 100%; aspect-ratio: 3 / 4; overflow: hidden; background: var(--chip); }
 .tile > img { width: 100%; height: 100%; object-fit: cover; transition: transform .3s; }
 .tile:active > img { transform: scale(.97); }
+.tile__badge { position: absolute; top: 6px; right: 6px; color: #fff; filter: drop-shadow(0 1px 3px rgba(0, 0, 0, .55)); }
+.tile__badge .icon { width: 20px; height: 20px; }
 .tile--deco { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #fff; padding: 8px; text-align: center; }
 .tile--deco .tile__em { font-size: 52px; line-height: 1; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .15)); }
 .tile--deco .tile__txt { font-size: 13px; font-weight: 700; line-height: 1.2; text-shadow: 0 1px 6px rgba(0, 0, 0, .2); }
@@ -417,7 +422,19 @@ img.emoji {
 .post__head b { font-weight: 600; }
 .post__head span { color: var(--muted); font-size: 12px; display: block; }
 .post__media { position: relative; width: 100%; aspect-ratio: 4 / 5; background: var(--chip); overflow: hidden; touch-action: manipulation; }
-.post__media img { width: 100%; height: 100%; object-fit: cover; }
+.post__media img, .post__video { display: block; width: 100%; height: 100%; object-fit: cover; }
+.post__video { background: #000; }
+.post__mute {
+  position: absolute;
+  right: 10px; bottom: 10px;
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, .55);
+  font-size: 14px;
+  pointer-events: none;
+}
 .post__heart {
   position: absolute; left: 50%; top: 50%;
   width: 110px; height: 110px;
@@ -914,6 +931,51 @@ img.emoji {
 .poll__crown { font-size: calc(var(--u) * 16); margin-bottom: calc(var(--u) * 4); line-height: 1; }
 
 /* =========================================================
+   КАК ВСЁ НАЧАЛОСЬ (IMVU)
+   ========================================================= */
+.bg-imvu { background: radial-gradient(120% 70% at 50% 42%, #3b1178 0%, #170736 55%, #07020f 100%); }
+.imvu__beam { position: absolute; top: -12%; width: 5px; height: 125%; opacity: .75; filter: blur(1.5px); pointer-events: none; }
+.imvu__beam--l { left: 14%; background: linear-gradient(#00e5ff, rgba(0, 229, 255, 0) 75%); transform: rotate(16deg); box-shadow: 0 0 26px 7px rgba(0, 229, 255, .45); }
+.imvu__beam--r { right: 14%; background: linear-gradient(#ff2bd6, rgba(255, 43, 214, 0) 75%); transform: rotate(-16deg); box-shadow: 0 0 26px 7px rgba(255, 43, 214, .45); }
+.slide.is-active .imvu__beam { animation: beam 3.2s ease-in-out infinite alternate; }
+@keyframes beam { from { opacity: .45; } to { opacity: .9; } }
+.imvu .t-hl { position: relative; z-index: 3; }
+.imvu__phone {
+  position: relative;
+  z-index: 2;
+  height: calc(var(--u) * 84);
+  aspect-ratio: 1170 / 2532;
+  margin: calc(var(--u) * 5) 0 calc(var(--u) * -7);
+  padding: calc(var(--u) * 1.2);
+  border-radius: calc(var(--u) * 6);
+  background: #0b0b10;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .16), 0 22px 60px rgba(123, 47, 247, .55), 0 0 44px rgba(0, 229, 255, .22);
+  transform: rotate(-4deg);
+}
+.imvu__phone img { width: 100%; height: 100%; object-fit: cover; border-radius: calc(var(--u) * 5); }
+.imvu__ach {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 3);
+  padding: calc(var(--u) * 2.4) calc(var(--u) * 5) calc(var(--u) * 2.4) calc(var(--u) * 3);
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .18);
+  background: rgba(16, 10, 30, .9);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .45), 0 0 26px rgba(255, 211, 110, .28);
+  text-align: left;
+  opacity: 0;
+  transform: translateY(30px) scale(.8);
+  transition: transform .6s cubic-bezier(.2, 1.5, .4, 1), opacity .4s;
+}
+.imvu__ach.show { opacity: 1; transform: none; }
+.imvu__trophy { font-size: calc(var(--u) * 9); line-height: 1; }
+.imvu__ach small { display: block; color: #ffd36e; font-size: calc(var(--u) * 2.9); font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.imvu__ach b { display: block; font-size: calc(var(--u) * 4.3); font-weight: 800; }
+.imvu > .t-hl--sm { margin-top: calc(var(--u) * 5); }
+
+/* =========================================================
    4. ТАЙМЕР
    ========================================================= */
 .cd {
@@ -1015,7 +1077,7 @@ img.emoji {
 .feed__bubble::after { content: ''; position: absolute; left: 50%; top: 100%; margin-left: -8px; border: 8px solid transparent; border-top-color: #fff; }
 .feed__bubble.say { animation: say .45s cubic-bezier(.2, 1.6, .4, 1); }
 @keyframes say { from { transform: translateX(-50%) scale(.6); opacity: .3; } to { transform: translateX(-50%) scale(1); opacity: 1; } }
-.feed__meter { display: flex; align-items: center; gap: calc(var(--u) * 2.5); margin-top: calc(var(--u) * 5.5); font-weight: 800; font-size: calc(var(--u) * 4); color: #7a1f4a; }
+.feed__meter { display: flex; align-items: center; gap: calc(var(--u) * 2.5); margin-top: calc(var(--u) * 7.5); font-weight: 800; font-size: calc(var(--u) * 4); color: #7a1f4a; }
 .feed__bar { width: calc(var(--u) * 38); height: calc(var(--u) * 3.2); border-radius: 99px; background: rgba(255, 255, 255, .7); overflow: hidden; box-shadow: inset 0 1px 3px rgba(0, 0, 0, .1); }
 .feed__bar i { display: block; height: 100%; width: 0; border-radius: inherit; background: linear-gradient(90deg, #ff7eb3, #ff3d7f); transition: width .5s cubic-bezier(.2, .9, .3, 1.2); }
 .feed__table { position: relative; width: 100%; margin-top: auto; height: calc(var(--u) * 46); }
@@ -1157,7 +1219,28 @@ img.emoji {
    7. ФОТО-ИСТОРИИ
    ========================================================= */
 .ph__bg { position: absolute; inset: -40px; background-size: cover; background-position: center; filter: blur(28px) brightness(.65) saturate(1.2); }
+.ph__media { position: absolute; inset: 0; }
 .ph__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .35s; }
+.vid { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: transparent; }
+.vid.contain { object-fit: contain; }
+.vid__btn {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  bottom: calc(var(--u) * 32);
+  transform: translateX(-50%);
+  padding: .75em 1.25em;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .35);
+  background: rgba(0, 0, 0, .55);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-weight: 700;
+  font-size: calc(var(--u) * 3.8);
+  white-space: nowrap;
+  animation: next-pulse 1.6s ease-in-out infinite;
+}
 .ph__img.loaded { opacity: 1; }
 .ph__img.contain { object-fit: contain; }
 .slide.is-active .ph__img.loaded { animation: kenburns 9s ease-out both; }

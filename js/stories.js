@@ -88,6 +88,7 @@
     if (typeof html === 'string') node.innerHTML = html;
     else if (html) node.appendChild(html);
     A.emojify(node);
+    A.fill(node);
     box.appendChild(node);
     s.el = node;
     if (s.def.mount) s.def.mount(node, s.api);
@@ -101,6 +102,7 @@
     V.index = i;
     V.elapsed = 0;
     var s = ensure(i);
+    s.lastPaused = undefined;
     if (!s.def.interactive && !s.def.final) s.progress = 0;
     if (s.def.final && !s.done) s.progress = 0;
     var node = s.el;
@@ -153,8 +155,19 @@
     V.last = t;
     var s = cur();
     if (!s) return;
-    var paused = V.holding || V.kbPaused || V.sheet || document.hidden || s.waiting;
-    if (!s.def.interactive && !paused && !(s.def.final && s.done)) {
+    var userPaused = V.holding || V.kbPaused || V.sheet || document.hidden;
+    var paused = userPaused || s.waiting;
+    // видео ставим на паузу только по действию пользователя, не во время загрузки
+    if (s.def.setPaused && userPaused !== s.lastPaused) {
+      s.lastPaused = userPaused;
+      s.def.setPaused(userPaused, s.el, s.api);
+    }
+    var clock = s.def.clock && !s.waiting ? s.def.clock() : null;
+    if (clock) {
+      // видео: прогресс идёт по самому ролику
+      s.progress = Math.min(1, clock.t / (clock.d || 1));
+      if (clock.ended && !paused) { next(); return; }
+    } else if (!s.def.interactive && !paused && !(s.def.final && s.done)) {
       var dur = s.def.duration || 6000;
       V.elapsed += dt;
       s.progress = Math.min(1, V.elapsed / dur);
@@ -457,8 +470,13 @@
     A.emojify(sheet);
   }
 
+  function setAvatar(url) {
+    if (url) $('.v-ava', el).innerHTML = '<img src="' + A.esc(url) + '" alt="">';
+  }
+
   A.stories = {
     init: init,
+    setAvatar: setAvatar,
     open: open,
     close: close,
     restart: restart,

@@ -64,10 +64,11 @@
   }
 
   function setLockWallpaper() {
-    var src = A.avatarFull();
-    if (!src) return;
-    A.preload(src).then(function (img) {
-      if (!img) return;
+    if (!A.photos.length && !A.hasSpecial('wallpaper')) return;
+    A.picAsync('wallpaper').then(function (src) {
+      return src ? A.preload(src).then(function (img) { return img ? src : ''; }) : '';
+    }).then(function (src) {
+      if (!src) return;
       var wall = $('#lock .lock__wall');
       if (!wall) return;
       wall.style.backgroundImage = 'linear-gradient(rgba(30,10,50,.25), rgba(30,10,50,.25)), url("' + src.replace(/"/g, '%22') + '")';
@@ -79,10 +80,17 @@
     if (unlocked) return;
     unlocked = true;
     A.sound.unlock();
+    A.unlockVideo();
     A.sound.playMusic();
     var lock = $('#lock');
     lock.classList.add('unlocked');
     setTimeout(function () { lock.hidden = true; }, 650);
+    if (!A.isReady) {
+      // фото ещё расшифровываются — показываем чёрный экран историй с индикатором загрузки
+      var viewer = $('#viewer');
+      viewer.hidden = false;
+      viewer.classList.add('waiting');
+    }
     A.ready.then(function () {
       setTimeout(function () { A.stories.open(0, avatarBtn); }, 320);
     });
@@ -90,10 +98,12 @@
 
   /* ---------- Профиль ---------- */
   var HIGHLIGHTS = [
+    { id: 'imvu', img: 'imvu', em: '🎮', label: 'IMVU', bg: 'linear-gradient(135deg,#2b0a57,#7b2ff7)' },
+    { id: 'timer', em: '⏳', label: 'Вместе', bg: 'linear-gradient(135deg,#2b1650,#6a2c70)' },
+    { id: 'b1-1', img: 'avatar', em: '😍', label: 'Ты', bg: 'linear-gradient(135deg,#fbc2eb,#a6c1ee)' },
+    { id: 'b2-1', img: 'us', em: '❤️', label: 'Мы', bg: 'linear-gradient(135deg,#ff758c,#ff7eb3)' },
     { id: 'feed', em: '🎂', label: 'Тортик', bg: 'linear-gradient(135deg,#ffd1dc,#ff9ec4)' },
     { id: 'candles', em: '🕯️', label: 'Свечи', bg: 'linear-gradient(135deg,#3d1f2b,#7a3b52)' },
-    { id: 'timer', em: '⏳', label: 'Мы', bg: 'linear-gradient(135deg,#2b1650,#6a2c70)' },
-    { id: 'photo-1', em: '📸', label: 'Фото', bg: 'linear-gradient(135deg,#fbc2eb,#a6c1ee)', needsPhotos: true },
     { id: 'balloons', em: '🎈', label: 'Шарики', bg: 'linear-gradient(135deg,#7ec8ff,#ffd6ec)' },
     { id: 'coupons', em: '🎟️', label: 'Купоны', bg: 'linear-gradient(135deg,#f6d365,#fda085)' },
     { id: 'cookie', em: '🥠', label: 'Судьба', bg: 'linear-gradient(135deg,#2a1250,#5a2d91)' },
@@ -121,19 +131,32 @@
     var p = $('#profile');
     var info = A.birthdayInfo();
     var since = A.since(A.metAt);
-    var av = A.avatarSrc();
+    var hasPhotos = A.photos.length > 0;
+    var av = hasPhotos || C.avatar || A.hasSpecial('avatar');
     var user = C.username || 'alena';
     var from = C.fromUsername || 'sasha';
-    var hasPhotos = A.photos.length > 0;
 
-    var hl = HIGHLIGHTS.filter(function (h) { return !h.needsPhotos || A.storyPhotos().length; }).map(function (h) {
-      return '<button class="hl" data-open="' + h.id + '"><span class="hl__ring"><span class="hl__cover" style="--hl-bg:' + h.bg + '">' + h.em +
+    var hl = HIGHLIGHTS.filter(function (h) { return A.stories.indexOf(h.id) >= 0; }).map(function (h) {
+      var img = h.img && (hasPhotos || A.hasSpecial(h.img));
+      return '<button class="hl" data-open="' + h.id + '"><span class="hl__ring"><span class="hl__cover" style="--hl-bg:' + h.bg + '">' +
+        (img ? '<img data-pic="' + h.img + '" alt="">' : h.em) +
         '</span></span><span class="hl__label">' + esc(h.label) + '</span></button>';
     }).join('');
 
+    // История с видео — для вкладки «Reels»
+    var reelsId = 'final';
+    [1, 2].some(function (n) {
+      var b = A.storyBlock(n);
+      for (var k = 0; k < b.length; k++) if (b[k].video) { reelsId = 'b' + n + '-' + (k + 1); return true; }
+      return false;
+    });
+
+    // Как в Instagram: новые публикации сверху
     var tiles = hasPhotos
-      ? A.photos.map(function (ph, i) {
-        return '<button class="tile" data-post="' + i + '" aria-label="Фото ' + (i + 1) + '"><img src="' + esc(ph.thumb) + '" alt="" loading="lazy" decoding="async"></button>';
+      ? A.photos.map(function (ph, i) { return i; }).reverse().map(function (i) {
+        var ph = A.photos[i];
+        return '<button class="tile" data-post="' + i + '" aria-label="' + (ph.video ? 'Видео' : 'Фото') + '"><img data-thumb="' + i + '" alt="" decoding="async">' +
+          (ph.video ? '<span class="tile__badge">' + A.icons.reels + '</span>' : '') + '</button>';
       }).join('')
       : DECO.map(function (d) {
         var txt = d[1] || (d[0] === '💖' ? (C.from + ' + ' + C.name) : d[0] === '💌' ? 'Люблю тебя' : A.pad(A.birth.getDate()) + '.' + A.pad(A.birth.getMonth() + 1));
@@ -152,7 +175,7 @@
       '<section class="p-head">' +
         '<button class="p-avatar ring" id="avatarBtn" aria-label="Открыть историю">' +
           '<span class="ring__grad"></span>' +
-          '<span class="p-avatar__img">' + (av ? '<img src="' + esc(av) + '" alt="">' : '🥰') + '</span>' +
+          '<span class="p-avatar__img">' + (av ? '<img data-pic="avatar" alt="">' : '🥰') + '</span>' +
           '<span class="p-avatar__badge">НОВОЕ</span>' +
         '</button>' +
         '<div class="p-stats">' +
@@ -167,6 +190,7 @@
         '<div>👑 Самая красивая девушка на свете</div>' +
         '<div>' + esc(bioBirthday(info)) + '</div>' +
         '<div>💌 Новая история от <a href="#" data-open="intro">@' + esc(from) + '</a></div>' +
+        (A.mediaLocked ? '<div class="p-lock">🔒 Фото и видео откроются по ссылке от ' + esc(C.fromGenitive || C.from) + '</div>' : '') +
       '</section>' +
       '<section class="p-actions">' +
         '<button class="btn btn--primary" data-open="intro">Смотреть историю</button>' +
@@ -175,12 +199,13 @@
       '<section class="p-hl" aria-label="Актуальное">' + hl + '</section>' +
       '<nav class="p-tabs">' +
         '<button class="active" aria-label="Публикации">' + A.icons.grid + '</button>' +
-        '<button data-open="photo-1" aria-label="Видео">' + A.icons.reels + '</button>' +
+        '<button data-open="' + reelsId + '" aria-label="Видео">' + A.icons.reels + '</button>' +
         '<button data-open="final" aria-label="Отметки">' + A.icons.tagged + '</button>' +
       '</nav>' +
       '<section class="p-grid">' + tiles + '</section>' +
       '<footer class="p-foot">Сделано с любовью ❤️ ' + esc(C.from) + '</footer>';
     A.emojify(p);
+    A.fill(p);
     avatarBtn = $('#avatarBtn');
 
     p.addEventListener('click', function (e) {
@@ -188,6 +213,7 @@
       if (!t) return;
       e.preventDefault();
       A.sound.unlock();
+      A.unlockVideo();
       if (t.id === 'avatarBtn') { A.stories.open(A.stories.resumeIndex(), avatarBtn); return; }
       if (t.hasAttribute('data-post')) { openFeed(+t.getAttribute('data-post')); return; }
       if (t.hasAttribute('data-deco') || t.getAttribute('data-act') === 'hearts') {
@@ -208,21 +234,30 @@
   };
 
   /* ---------- Лента публикаций ---------- */
+  var feedObserver = null;
+
   function buildFeed() {
     var fv = $('#feedView');
     var user = C.username || 'alena';
-    var av = A.avatarSrc();
+    var av = A.photos.length > 0 || C.avatar || A.hasSpecial('avatar');
     var caps = C.photoCaptions || [];
     var info = A.birthdayInfo();
+    var order = A.photos.map(function (ph, i) { return i; }).reverse();
     fv.innerHTML =
       '<div class="feed-view__top"><button class="v-btn" data-act="back" aria-label="Назад" style="color:inherit;filter:none">' + A.icons.back + '</button>' +
         '<div><small>' + esc(user) + '</small><b>Публикации</b></div></div>' +
-      '<div class="feed-view__list">' + A.photos.map(function (ph, i) {
+      '<div class="feed-view__list">' + order.map(function (i) {
+        var ph = A.photos[i];
         var cap = ph.caption || (caps.length ? caps[i % caps.length] : '');
+        var ratio = ph.w && ph.h ? A.clamp(ph.w / ph.h, 0.8, 1.91).toFixed(3) : '0.8';
+        var media = ph.video
+          ? '<video class="post__video" muted loop playsinline preload="none"></video><span class="post__mute">🔇</span>'
+          : '<img data-thumb="' + i + '" alt="" decoding="async">';
         return '<article class="post" data-i="' + i + '">' +
-          '<div class="post__head"><div class="post__ava">' + (av ? '<img src="' + esc(av) + '" alt="">' : '🥰') + '</div>' +
+          '<div class="post__head"><div class="post__ava">' + (av ? '<img data-pic="avatar" alt="">' : '🥰') + '</div>' +
             '<div><b>' + esc(user) + '</b><span>📍 В сердце у ' + esc(C.fromGenitive || C.from) + '</span></div></div>' +
-          '<div class="post__media"><img src="' + esc(ph.src) + '" alt="" loading="lazy" decoding="async"><div class="post__heart">' + A.icons.heartFill + '</div></div>' +
+          '<div class="post__media' + (ph.video ? ' is-video' : '') + '" style="aspect-ratio:' + ratio + '">' + media +
+            '<div class="post__heart">' + A.icons.heartFill + '</div></div>' +
           '<div class="post__actions"><button class="post__like" aria-label="Нравится">' + A.icons.heart + '</button>' +
             '<button aria-label="Комментарий">' + A.icons.comment + '</button><button aria-label="Поделиться">' + A.icons.send + '</button>' +
             '<div class="grow"></div><button aria-label="Сохранить">' + A.icons.bookmark + '</button></div>' +
@@ -232,6 +267,39 @@
         '</article>';
       }).join('') + '</div>';
     A.emojify(fv);
+    A.fill(fv);
+    A.$$('.post', fv).forEach(function (post) {
+      var ph = A.photos[+post.getAttribute('data-i')];
+      var v = $('.post__video', post);
+      if (v) A.thumbOf(ph).then(function (url) { if (url) v.poster = url; });
+    });
+    var list = $('.feed-view__list', fv);
+
+    // Полноразмерные фото и видео подгружаем, когда пост показывается на экране
+    function show(post, visible) {
+      var ph = A.photos[+post.getAttribute('data-i')];
+      var v = $('.post__video', post);
+      if (visible && !post._full) {
+        post._full = true;
+        A.photoSrc(ph).then(function (url) {
+          if (!url) return;
+          if (v) { v.src = url; if (post._visible) { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); } }
+          else { var img = $('img', $('.post__media', post)); img.removeAttribute('data-thumb'); img.src = url; }
+        });
+      }
+      post._visible = visible;
+      if (v && v.getAttribute('src')) {
+        if (visible) { var pr2 = v.play(); if (pr2 && pr2.catch) pr2.catch(function () {}); } else v.pause();
+      }
+    }
+    if ('IntersectionObserver' in window) {
+      feedObserver = new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) { show(en.target, en.isIntersecting); });
+      }, { root: list, rootMargin: '300px 0px', threshold: 0.01 });
+      A.$$('.post', fv).forEach(function (post) { feedObserver.observe(post); });
+    } else {
+      A.$$('.post', fv).forEach(function (post) { show(post, true); });
+    }
 
     function like(post, force) {
       var btn = $('.post__like', post);
@@ -246,7 +314,14 @@
       var post = e.target.closest('.post');
       if (!post) return;
       if (e.target.closest('.post__like')) { like(post); return; }
-      if (e.target.closest('.post__media')) {
+      var media = e.target.closest('.post__media');
+      if (media) {
+        var v = $('.post__video', media);
+        if (v) {
+          v.muted = !v.muted;
+          A.setText($('.post__mute', media), v.muted ? '🔇' : '🔊');
+          if (v.paused && v.getAttribute('src')) { var pr = v.play(); if (pr && pr.catch) pr.catch(function () {}); }
+        }
         var now = Date.now();
         if (now - lastTap < 320) {
           like(post, true);
@@ -274,6 +349,7 @@
   function closeFeed() {
     var fv = $('#feedView');
     fv.classList.remove('show');
+    A.$$('.post__video', fv).forEach(function (v) { v.pause(); });
     setTimeout(function () { fv.hidden = true; }, 330);
   }
 
@@ -282,12 +358,13 @@
     A.stories.init();
     renderLock();
     A.ready = A.loadPhotos().then(function () {
+      A.isReady = true;
+      A.stories.build();
+      A.picAsync('sasha').then(A.stories.setAvatar);
       renderProfile();
       setLockWallpaper();
-      A.stories.build();
       var em = ['🎉', '🎈', '💖', '✨', '😍', '🥰', '👑', '❤️', '💘', '🍰', '🎂', '🎟️', '🎁', '🔮', '⭐', '💥'];
       A.fx.preloadEmoji(em);
-      A.photos.slice(0, 3).forEach(function (ph) { A.preload(ph.thumb); });
     });
 
     // ?s=candles — открыть сразу нужную историю (удобно для проверки)

@@ -276,37 +276,176 @@
       .catch(function () { return []; });
   }
 
+  /* ---------- Зашифрованные фото и видео ----------
+     Файлы media/*.bin = 12 байт IV + AES-GCM. Ключ приходит в ссылке после # (k=...)
+     и на сервер не отправляется; сайт запоминает его, чтобы фото открывались и без хвоста ссылки. */
+  var mediaCache = {};
+  var keyPromise = null;
+  function b64url(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/');
+    while (s.length % 4) s += '=';
+    var bin = atob(s);
+    var out = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  }
+  App.mediaKey = (function () {
+    var m = (location.hash || '').match(/[#&]k=([A-Za-z0-9_-]{16,})/);
+    if (m) { App.store.set('mediaKey', m[1]); return m[1]; }
+    return App.store.get('mediaKey', '');
+  })();
+  function cryptoKey() {
+    if (keyPromise) return keyPromise;
+    var subtle = window.crypto && window.crypto.subtle;
+    if (!App.mediaKey || !subtle || !window.fetch) return (keyPromise = Promise.resolve(null));
+    try {
+      keyPromise = Promise.resolve(subtle.importKey('raw', b64url(App.mediaKey), 'AES-GCM', false, ['decrypt']))
+        .catch(function () { return null; });
+    } catch (e) { keyPromise = Promise.resolve(null); }
+    return keyPromise;
+  }
+  /* Promise<url>: обычный файл — его путь; зашифрованный — blob: после расшифровки (или '' если не вышло) */
+  App.media = function (path, type, enc) {
+    if (!path) return Promise.resolve('');
+    if (!enc) return Promise.resolve(path);
+    if (mediaCache[path]) return mediaCache[path];
+    mediaCache[path] = cryptoKey().then(function (key) {
+      if (!key) return '';
+      return fetch(path)
+        .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); })
+        .then(function (buf) {
+          return window.crypto.subtle.decrypt({ name: 'AES-GCM', iv: new Uint8Array(buf, 0, 12) }, key, new Uint8Array(buf, 12));
+        })
+        .then(function (plain) { return URL.createObjectURL(new Blob([plain], { type: type || 'image/jpeg' })); });
+    }).catch(function () { return ''; });
+    return mediaCache[path];
+  };
+
+  /* Особые кадры (аватарка, обои, полароид…) — расшифровываются по требованию */
+  App.special = {};
+  var specialPromises = {};
+  function loadSpecial(k) {
+    if (!specialPromises[k]) {
+      var sp = window.SPECIAL || {};
+      specialPromises[k] = App.media(sp[k], 'image/jpeg', !!sp.enc).then(function (url) {
+        App.special[k] = url || '';
+        return App.special[k];
+      });
+    }
+    return specialPromises[k];
+  }
+  App.hasSpecial = function (k) {
+    var sp = window.SPECIAL || {};
+    return !!sp[k] && !(sp.enc && App.mediaLocked);
+  };
+
+  // Проверяем ключ на одном маленьком файле, чтобы не ждать расшифровки всего сразу
+  function probeKey(items) {
+    var sp = window.SPECIAL || {};
+    var path = sp.enc && sp.sasha ? sp.sasha : '';
+    if (!path) {
+      var e = items.filter(function (p) { return p.enc; })[0];
+      path = e ? (e.thumb || e.poster || e.src) : '';
+    }
+    if (!path) return Promise.resolve(true);
+    return App.media(path, 'image/jpeg', true).then(function (url) { return !!url; });
+  }
+
   App.loadPhotos = function () {
     var list = (window.PHOTOS || []).map(function (p) {
       return typeof p === 'string' ? { src: p } : p;
     }).filter(function (p) { return p && p.src; });
     var ready = list.length ? Promise.resolve(list) : fromGitHub();
     return ready.then(function (items) {
-      App.photos = items.map(function (p) {
-        return { src: p.src, thumb: p.thumb || p.src, caption: p.caption || '', story: !!p.story };
+      var hasEnc = items.some(function (p) { return p.enc; }) || !!(window.SPECIAL && window.SPECIAL.enc);
+      return (hasEnc ? probeKey(items) : Promise.resolve(true)).then(function (ok) {
+        App.mediaLocked = hasEnc && !ok;
+        App.photos = items.filter(function (p) { return !p.enc || ok; }).map(function (p) {
+          return {
+            src: p.src,
+            thumbPath: p.thumb || (p.video ? p.poster : p.src),
+            thumb: '',
+            poster: p.poster || '',
+            enc: !!p.enc,
+            video: !!p.video,
+            type: p.type || (p.video ? 'video/mp4' : 'image/jpeg'),
+            duration: p.duration || 0,
+            w: p.w || 0,
+            h: p.h || 0,
+            caption: p.caption || '',
+            story: p.story || false
+          };
+        });
+        // для первых историй нужен только полароид; остальное грузится в фоне
+        return App.picAsync('polaroid');
       });
+    }).then(function () {
+      App.allLoaded = Promise.all(
+        ['wallpaper', 'avatar', 'feedFace', 'us', 'imvu'].map(App.picAsync)
+          .concat(App.photos.map(App.thumbOf))
+      );
       return App.photos;
     });
   };
-  App.storyPhotos = function () {
+  App.thumbOf = function (p) {
+    if (p.thumb) return Promise.resolve(p.thumb);
+    return App.media(p.thumbPath, 'image/jpeg', p.enc).then(function (url) {
+      if (url) p.thumb = url;
+      return p.thumb;
+    });
+  };
+  /* Особый кадр с запасными вариантами (Promise<url>) */
+  App.picAsync = function (name) {
+    if (name === 'avatar' && C.avatar) return Promise.resolve(C.avatar);
+    if (name === 'sasha' && C.fromAvatar) return Promise.resolve(C.fromAvatar);
+    if (App.mediaLocked && window.SPECIAL && window.SPECIAL.enc) return Promise.resolve('');
+    return loadSpecial(name).then(function (url) {
+      if (url || name === 'sasha' || name === 'imvu') return url;
+      if (name !== 'avatar') return App.picAsync('avatar');
+      var first = App.photos.filter(function (p) { return !p.video; })[0];
+      return first ? App.thumbOf(first) : '';
+    });
+  };
+  /* Подставляет картинки в <img data-pic="..."> и <img data-thumb="индекс фото"> (или фон у других элементов) */
+  function setUrl(el, url) {
+    if (!url) return;
+    if (el.tagName === 'IMG') { if (el.getAttribute('src') !== url) el.src = url; }
+    else el.style.backgroundImage = 'url("' + url.replace(/"/g, '%22') + '")';
+  }
+  App.fill = function (root) {
+    App.$$('[data-pic]', root).forEach(function (el) {
+      App.picAsync(el.getAttribute('data-pic')).then(function (url) { setUrl(el, url); });
+    });
+    App.$$('[data-thumb]', root).forEach(function (el) {
+      var p = App.photos[+el.getAttribute('data-thumb')];
+      // если тем временем подставили полноразмерное фото (атрибут сняли) — превью не нужно
+      if (p) App.thumbOf(p).then(function (url) { if (el.hasAttribute('data-thumb')) setUrl(el, url); });
+    });
+    return root;
+  };
+
+  App.photoSrc = function (p) { return App.media(p.src, p.type, p.enc); };
+  App.posterSrc = function (p) { return p.poster ? App.media(p.poster, 'image/jpeg', p.enc) : Promise.resolve(p.thumb); };
+
+  /* Фото для историй: story: 1 — «Самая красивая», story: 2 — «Это мы».
+     Если ни одно фото не отмечено — для первого блока берём несколько равномерно по времени. */
+  App.storyBlock = function (n) {
     var ps = App.photos;
-    var n = Math.max(0, C.storyPhotoCount == null ? 6 : C.storyPhotoCount);
-    var marked = ps.filter(function (p) { return p.story; });
-    if (marked.length) return marked;
-    if (ps.length <= n) return ps.slice();
-    if (n === 1) return [ps[0]];
+    if (ps.some(function (p) { return p.story; })) {
+      return ps.filter(function (p) { return p.story === n || (n === 1 && p.story === true); });
+    }
+    if (n !== 1) return [];
+    var pics = ps.filter(function (p) { return !p.video; });
+    var k = Math.max(0, C.storyPhotoCount == null ? 6 : C.storyPhotoCount);
+    if (pics.length <= k) return pics;
+    if (k === 1) return [pics[0]];
     var out = [];
-    for (var i = 0; i < n; i++) out.push(ps[Math.round(i * (ps.length - 1) / (n - 1))]);
+    for (var i = 0; i < k; i++) out.push(pics[Math.round(i * (pics.length - 1) / (k - 1))]);
     return out;
   };
-  App.avatarSrc = function () {
-    if (C.avatar) return C.avatar;
-    return App.photos.length ? App.photos[0].thumb : '';
-  };
-  App.avatarFull = function () {
-    if (C.avatar) return C.avatar;
-    return App.photos.length ? App.photos[0].src : '';
-  };
+  App.storyPhotos = function () { return App.storyBlock(1).concat(App.storyBlock(2)); };
+
+
   App.preload = function (src) {
     return new Promise(function (res) {
       if (!src) return res(null);
