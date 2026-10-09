@@ -1113,7 +1113,7 @@ img.emoji {
 .bokeh { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 .bokeh i { position: absolute; border-radius: 50%; background: radial-gradient(circle, rgba(255, 200, 120, .45), rgba(255, 200, 120, 0) 70%); animation: bokeh var(--t, 6s) var(--d, 0s) ease-in-out infinite alternate; }
 @keyframes bokeh { from { transform: translate(0, 0) scale(1); opacity: .5; } to { transform: translate(14px, -18px) scale(1.15); opacity: .9; } }
-.candles .t-hl { position: relative; z-index: 3; }
+.candles .t-hl { position: relative; z-index: 4; } /* над свечением торта */
 .cake {
   position: relative;
   z-index: 3;
@@ -1122,18 +1122,35 @@ img.emoji {
   margin-top: calc(var(--u) * 6);
   touch-action: none;
 }
+/* Тёплый свет от свечей: центр — на огоньках, градиент гаснет до краёв блока, чтобы не было обрезанной кромки */
 .cake__glow {
   position: absolute;
-  left: 50%; top: calc(var(--u) * 2);
-  width: calc(var(--u) * 90); height: calc(var(--u) * 60);
+  left: 50%; top: calc(var(--u) * -30);
+  width: calc(var(--u) * 100); height: calc(var(--u) * 76);
   transform: translateX(-50%);
-  background: radial-gradient(ellipse at 50% 30%, rgba(255, 190, 90, .55), rgba(255, 150, 60, 0) 65%);
+  background: radial-gradient(closest-side, rgba(255, 190, 90, .42), rgba(255, 165, 70, .18) 50%, rgba(255, 150, 60, 0));
   transition: opacity .8s;
   pointer-events: none;
 }
 .cake.all-out .cake__glow { opacity: 0; }
 .cake__candles { position: absolute; left: 0; right: 0; top: 0; height: calc(var(--u) * 34); display: flex; justify-content: center; align-items: flex-end; gap: calc(var(--u) * 3); }
 .nc { position: relative; display: flex; flex-direction: column; align-items: center; }
+/* Ореол вокруг огонька (под цифрой и огнём) */
+.nc::before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  left: 50%; top: calc(var(--u) * -4);
+  width: calc(var(--u) * 34); height: calc(var(--u) * 34);
+  margin: calc(var(--u) * -17) 0 0 calc(var(--u) * -17);
+  background: radial-gradient(closest-side, rgba(255, 205, 120, .55), rgba(255, 170, 70, .2) 40%, rgba(255, 150, 50, 0));
+  pointer-events: none;
+  animation: halo 1.8s ease-in-out infinite alternate;
+  transition: opacity .5s;
+}
+.nc:nth-child(2n)::before { animation-delay: -.9s; }
+.nc.out::before { opacity: 0; }
+@keyframes halo { from { transform: scale(.9); } to { transform: scale(1.06); } }
 .nc__num {
   font-family: var(--font-display);
   font-weight: 900;
@@ -1164,8 +1181,9 @@ img.emoji {
   left: 0; right: 0; bottom: 0;
   height: 100%;
   border-radius: 50% 50% 46% 46% / 64% 64% 36% 36%;
-  background: radial-gradient(ellipse at 50% 78%, #fff 0 12%, #fff3b0 24%, #ffc83d 46%, #ff8a00 66%, rgba(255, 90, 0, 0) 78%);
-  box-shadow: 0 0 calc(var(--u) * 5) calc(var(--u) * 2) rgba(255, 170, 60, .55), 0 0 calc(var(--u) * 14) calc(var(--u) * 5) rgba(255, 140, 40, .28);
+  /* огонь мягко растворяется к краю, а свечение повторяет его форму — без тёмного ободка */
+  background: radial-gradient(ellipse at 50% 78%, #fff 0 11%, #fff3b0 23%, #ffcf45 40%, #ffa21a 54%, rgba(255, 125, 0, .55) 63%, rgba(255, 110, 0, 0) 71%);
+  filter: drop-shadow(0 0 3px rgba(255, 200, 100, .9)) drop-shadow(0 0 10px rgba(255, 150, 50, .55));
   animation: flicker .14s ease-in-out infinite alternate;
   transform-origin: 50% 90%;
 }
