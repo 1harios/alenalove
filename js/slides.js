@@ -1284,6 +1284,120 @@
   }
 
   /* =========================================================
+     12½. Баночка «31 причина, почему я тебя люблю»
+     ========================================================= */
+  function sReasons() {
+    var list = (C.reasons || []).filter(Boolean);
+    var total = list.length;
+    var NEED = Math.min(5, total); // после стольких записок можно листать дальше
+    var JAR = 18;                  // бумажек, нарисованных в баночке
+    return {
+      id: 'reasons',
+      cls: 'bg-lilac',
+      interactive: true,
+      render: function () {
+        var colors = ['#ffd1dc', '#ffe8a3', '#c9ecff', '#e3d4ff', '#ffd8b8', '#d4f7dc'];
+        var notes = '';
+        for (var i = 0; i < JAR; i++) {
+          notes += '<i style="--c:' + colors[i % colors.length] + ';left:' + (5 + (i % 4) * 22 + A.rand(-3, 3)).toFixed(1) +
+            '%;bottom:' + (3 + Math.floor(i / 4) * 12 + A.rand(-2, 2)).toFixed(1) + '%;--r:' + Math.round(A.rand(-35, 35)) + 'deg"></i>';
+        }
+        return floaters(['💌', '💗', '✨'], 6) +
+          '<div class="sl sl--center reasons">' +
+            '<p class="t-hl rise"><span>' + total + ' ' + A.plural(total, ['причина', 'причины', 'причин']) + ',</span><br><span>почему я тебя люблю 💌</span></p>' +
+            '<div class="rn-zone"><div class="rn-zone__hint">Каждая записка — одна причина.<br>Достань первую 👇</div></div>' +
+            '<div class="jar-wrap rise" style="--d:.2s">' +
+              '<button class="jar" data-interactive aria-label="Достать записку">' +
+                '<span class="jar__glass"><span class="jar__notes">' + notes + '</span><span class="jar__shine"></span></span>' +
+                '<span class="jar__lid"><span class="jar__bow">🎀</span></span>' +
+                '<span class="jar__tag">для ' + esc(C.nameGenitive || C.name) + '</span>' +
+              '</button>' +
+            '</div>' +
+            '<div class="jar__count"><b>0</b> из ' + total + '</div>' +
+          '</div>';
+      },
+      mount: function (el, api) {
+        var jar = A.$('.jar', el);
+        var zone = A.$('.rn-zone', el);
+        var countEl = A.$('.jar__count b', el);
+        var bits = A.$$('.jar__notes i', el);
+        // сколько записок уже прочитано — запоминаем, чтобы из «Актуального» продолжить с того же места
+        var n = A.clamp(+A.store.get('reasons', 0) || 0, 0, total);
+        var ended = false;
+        var card = null;
+
+        function fillJar() {
+          var left = Math.ceil(JAR * (total - n) / total);
+          bits.forEach(function (b, i) { b.classList.toggle('gone', i >= left); });
+          A.setText(countEl, String(n));
+        }
+        function show(html, cls) {
+          var hint = A.$('.rn-zone__hint', zone);
+          if (hint) hint.remove();
+          if (card) {
+            var old = card;
+            old.classList.add('out');
+            setTimeout(function () { old.remove(); }, 500);
+          }
+          card = document.createElement('div');
+          card.className = 'rn' + (cls ? ' ' + cls : '');
+          card.style.setProperty('--r', (n % 2 ? -2.5 : 2) + 'deg');
+          card.innerHTML = html;
+          A.emojify(card);
+          zone.appendChild(card);
+        }
+        function reason(i) {
+          return '<span class="rn__no">№ ' + (i + 1) + '</span><span class="rn__text">' + esc(list[i]) + '</span>';
+        }
+        function finale() {
+          return '<span class="rn__text">' + total + ' из ' + total + ' — но на самом деле причин бесконечно много ∞ ❤️</span>';
+        }
+        function pull() {
+          jar.classList.remove('shake');
+          void jar.offsetWidth;
+          jar.classList.add('shake');
+          A.vibrate(12);
+          var c = A.center(jar);
+          if (ended) { // баночка пуста — наполняем заново
+            ended = false;
+            n = 0;
+            A.store.set('reasons', 0);
+            fillJar();
+            snd.sparkle();
+            show('<span class="rn__text">Баночка снова полная — можно читать заново 😊</span>');
+            return;
+          }
+          if (n >= total) {
+            ended = true;
+            snd.success();
+            show(finale(), 'rn--final');
+            fx.confetti({ x: c.x, y: c.y, count: 90, emoji: ['❤️', '💗', '💌', '✨'], emojiShare: 0.5 });
+            return;
+          }
+          show(reason(n));
+          n++;
+          A.store.set('reasons', n);
+          fillJar();
+          snd.pop();
+          fx.confetti({ x: c.x, y: c.y - jar.offsetHeight * 0.4, count: 12, emoji: ['💗', '✨'], emojiShare: 0.6, spread: Math.PI * 0.7, speed: [4, 8], size: [5, 8] });
+          api.setProgress(n / NEED);
+          if (n >= NEED) api.complete();
+        }
+        jar.addEventListener('click', pull);
+        zone.addEventListener('click', function () { if (card) pull(); });
+
+        fillJar();
+        if (n > 0) {
+          ended = n >= total;
+          show(ended ? finale() : reason(n - 1), ended ? 'rn--final' : '');
+        }
+        if (n >= NEED) api.complete();
+      },
+      hint: function (el) { pulse(A.$('.jar', el)); A.toast('Нажми на баночку 💌'); }
+    };
+  }
+
+  /* =========================================================
      13. Письмо
      ========================================================= */
   function sLetter() {
@@ -1478,7 +1592,9 @@
     list = list.concat(block(1, '📸 Наши моменты'));
     list.push(sBalloons(), sSlider());
     list = list.concat(block(2, '❤️ Это мы'));
-    list.push(sCoupons(), sCookie(), sAsk(), sLetter(), sFinal());
+    list.push(sCoupons(), sCookie(), sAsk());
+    if (C.reasons && C.reasons.length) list.push(sReasons());
+    list.push(sLetter(), sFinal());
     return list;
   };
 })();
