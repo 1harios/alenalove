@@ -292,7 +292,7 @@
   App.mediaKey = (function () {
     var m = (location.hash || '').match(/[#&]k=([A-Za-z0-9_-]{16,})/);
     if (m) { App.store.set('mediaKey', m[1]); return m[1]; }
-    return App.store.get('mediaKey', '');
+    return window.MEDIA_KEY || App.store.get('mediaKey', ''); // MEDIA_KEY пишет сборка на Vercel (js/key.js)
   })();
   // Ключ дописали в адрес уже открытой страницы — браузер сам её не перезагрузит
   window.addEventListener('hashchange', function () {
