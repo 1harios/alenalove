@@ -1369,6 +1369,7 @@ img.emoji {
 .cp__emoji { font-size: calc(var(--u) * 11); line-height: 1.05; }
 .cp__title { font-weight: 900; font-size: calc(var(--u) * 4.3); line-height: 1.15; }
 .cp__note { font-size: calc(var(--u) * 3.1); line-height: 1.2; opacity: .8; border-top: 1.5px dashed rgba(90, 42, 18, .35); padding-top: calc(var(--u) * 1.4); margin-top: calc(var(--u) * .8); }
+.cp__note .nw { white-space: nowrap; }
 .cp__scratch { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; transition: opacity .6s ease, transform .6s ease; }
 .cp__scratch.gone { opacity: 0; transform: scale(1.06); pointer-events: none; }
 .cp__label {

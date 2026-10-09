@@ -978,7 +978,10 @@
               return '<div class="cp" data-i="' + i + '" data-interactive>' +
                 '<div class="cp__ticket"><div class="cp__emoji">' + esc(c.emoji || '🎁') + '</div>' +
                   '<div class="cp__title">' + esc(c.title) + '</div>' +
-                  (c.note ? '<div class="cp__note">' + esc(c.note) + '</div>' : '') +
+                  // два последних слова не разрываются: «без повода», «Саши 👨‍🍳» (эмодзи на Android — картинка)
+                  (c.note ? '<div class="cp__note">' + esc(c.note).replace(/(\S+) (\S+)$/, function (m) {
+                    return m.length <= 16 ? '<span class="nw">' + m + '</span>' : m;
+                  }) + '</div>' : '') +
                 '</div>' +
                 '<canvas class="cp__scratch"></canvas>' +
                 '<div class="cp__label"><span>🪙</span><span>Сотри</span></div>' +
